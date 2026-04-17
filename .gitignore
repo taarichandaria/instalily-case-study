@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.uv/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+.env*.local
+
+# Env
+.env
+
+# Data (scraped + derived)
+backend/data/raw_html/
+backend/data/chroma/
+backend/data/parts.sqlite
+backend/data/*.sqlite-journal
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f9f9;
+  --foreground: #0d1f1f;
+  --ps-teal: #337778;
+  --ps-teal-dark: #245556;
+  --ps-teal-light: #e7f2f2;
+  --ps-yellow: #f7c52b;
+  --border: #d9e0e0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ps-teal: var(--ps-teal);
+  --color-ps-teal-dark: var(--ps-teal-dark);
+  --color-ps-teal-light: var(--ps-teal-light);
+  --color-ps-yellow: var(--ps-yellow);
+  --color-border: var(--border);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Streaming cursor */
+.stream-cursor::after {
+  content: "▍";
+  display: inline-block;
+  margin-left: 2px;
+  animation: blink 1s steps(2) infinite;
+  color: var(--ps-teal);
+  font-weight: 300;
+}
+
+@keyframes blink {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Prose tweaks for streaming responses */
+.prose p {
+  margin: 0.5rem 0;
+  line-height: 1.55;
+}
+.prose p:first-child {
+  margin-top: 0;
+}
+.prose p:last-child {
+  margin-bottom: 0;
+}
+.prose ul,
+.prose ol {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+.prose li {
+  margin: 0.15rem 0;
+}
+.prose a {
+  color: var(--ps-teal);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose code {
+  background: #eef3f3;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.prose strong {
+  font-weight: 600;
+}
