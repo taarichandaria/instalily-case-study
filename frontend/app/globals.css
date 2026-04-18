@@ -1,13 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f9f9;
-  --foreground: #0d1f1f;
+  --background: #f7f7f7;
+  --foreground: #1a1a1a;
   --ps-teal: #337778;
   --ps-teal-dark: #245556;
   --ps-teal-light: #e7f2f2;
-  --ps-yellow: #f7c52b;
-  --border: #d9e0e0;
+  --ps-yellow: #f3c04c;
+  --ps-yellow-dark: #e0ac34;
+  --ps-orange: #feaa47;
+  --ps-orange-dark: #f68c1e;
+  --border: #d9d9d9;
 }
 
 @theme inline {
@@ -17,22 +20,37 @@
   --color-ps-teal-dark: var(--ps-teal-dark);
   --color-ps-teal-light: var(--ps-teal-light);
   --color-ps-yellow: var(--ps-yellow);
+  --color-ps-yellow-dark: var(--ps-yellow-dark);
+  --color-ps-orange: var(--ps-orange);
+  --color-ps-orange-dark: var(--ps-orange-dark);
   --color-border: var(--border);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-roboto);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Oxygen, Ubuntu, sans-serif;
+  font-family: var(--font-roboto), Roboto, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Oxygen, Ubuntu, sans-serif;
+}
+
+/* Force everything to inherit the Roboto stack — Tailwind Typography's
+   .prose class otherwise resets font-family to ui-sans-serif. */
+html,
+body,
+button,
+input,
+textarea,
+.prose {
+  font-family: var(--font-roboto), Roboto, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Oxygen, Ubuntu, sans-serif;
 }
 
 /* Streaming cursor */
 .stream-cursor::after {
   content: "▍";
   display: inline-block;
-  margin-left: 2px;
+  margin-left: 3px;
   animation: blink 1s steps(2) infinite;
   color: var(--ps-teal);
   font-weight: 300;
@@ -44,23 +62,85 @@ body {
   }
 }
 
-/* Prose tweaks for streaming responses */
-.prose p {
-  margin: 0.5rem 0;
-  line-height: 1.55;
+/* Prose styles for assistant messages (hand-rolled; no @tailwindcss/typography). */
+.assistant-message {
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdfd 100%);
+  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
 }
-.prose p:first-child {
+
+.prose {
+  color: var(--foreground);
+  font-size: 0.98rem;
+  line-height: 1.72;
+}
+.prose > *:first-child {
   margin-top: 0;
 }
-.prose p:last-child {
+.prose > *:last-child {
   margin-bottom: 0;
+}
+.prose p {
+  margin: 0.72rem 0;
+}
+.prose > p:first-child {
+  color: #163536;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.25rem 0 0.6rem;
+  color: var(--foreground);
+}
+.prose h1 {
+  font-size: 1.15rem;
+}
+.prose h2 {
+  font-size: 1.05rem;
+}
+.prose h3 {
+  border-top: 1px solid #e6ebeb;
+  padding-top: 0.7rem;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ps-teal-dark);
+}
+.prose h4 {
+  font-size: 0.95rem;
 }
 .prose ul,
 .prose ol {
-  margin: 0.5rem 0;
-  padding-left: 1.25rem;
+  margin: 0.9rem 0;
+}
+.prose ul {
+  list-style: none;
+  padding-left: 0;
+}
+.prose ol {
+  list-style-type: decimal;
+  padding-left: 1.4rem;
+}
+.prose ul > li {
+  margin: 0.55rem 0;
+  border: 1px solid #dde6e6;
+  background: #f8fbfb;
+  padding: 0.8rem 0.95rem;
+}
+.prose ol > li {
+  padding-left: 0.2rem;
 }
 .prose li {
+  line-height: 1.65;
+}
+.prose ol > li::marker {
+  list-style-type: decimal;
+  color: var(--ps-teal);
+  font-weight: 700;
+}
+.prose li > p {
   margin: 0.15rem 0;
 }
 .prose a {
@@ -68,13 +148,57 @@ body {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.prose a:hover {
+  color: var(--ps-teal-dark);
+}
+.prose strong {
+  font-weight: 700;
+  color: #163536;
+}
 .prose code {
   background: #eef3f3;
   padding: 0.1em 0.35em;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 0.9em;
   font-family: ui-monospace, SFMono-Regular, monospace;
 }
-.prose strong {
-  font-weight: 600;
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1rem 0;
+}
+.prose blockquote {
+  border-left: 3px solid var(--ps-teal);
+  background: #f2f8f8;
+  padding: 0.7rem 0.9rem;
+  margin: 0.95rem 0;
+  color: var(--ps-teal-dark);
+}
+.prose blockquote p {
+  margin: 0;
+}
+/* Tables (GFM) */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8rem 0;
+  font-size: 0.92rem;
+}
+.prose thead {
+  background: var(--ps-teal-light);
+}
+.prose th {
+  text-align: left;
+  font-weight: 700;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--ps-teal-dark);
+}
+.prose td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.prose tr:last-child td {
+  border-bottom: 0;
 }

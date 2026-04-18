@@ -17,6 +17,8 @@ class RelatedPart(BaseModel):
     ps_number: str
     name: str
     price_usd: float | None = None
+    source_url: str | None = None
+    image_url: str | None = None
 
 
 class Part(BaseModel):
@@ -52,6 +54,14 @@ class Part(BaseModel):
 # -- Chat / tool envelopes -------------------------------------------------
 
 
+class PartPreview(BaseModel):
+    ps_number: str
+    name: str
+    image_url: str
+    price_usd: float | None = None
+    source_url: str | None = None
+
+
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
@@ -76,6 +86,11 @@ class ToolEndEvent(BaseModel):
 class TextDeltaEvent(BaseModel):
     kind: Literal["text"] = "text"
     text: str
+
+
+class PartPreviewsEvent(BaseModel):
+    kind: Literal["part_previews"] = "part_previews"
+    parts: list[PartPreview]
 
 
 class DoneEvent(BaseModel):

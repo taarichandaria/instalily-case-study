@@ -227,11 +227,16 @@ def parse_part_page(html: str, source_url: str) -> Part | None:
     if rp:
         names: dict[str, str] = {}
         prices: dict[str, float] = {}
+        urls: dict[str, str] = {}
+        images: dict[str, str] = {}
         for a in rp.find_all("a", href=PS_HREF_RE):
             m = PS_HREF_RE.search(a.get("href", ""))
             if not m:
                 continue
             ps = f"PS{m.group(1)}"
+            href = a.get("href", "")
+            if href and ps not in urls:
+                urls[ps] = urljoin(BASE, href)
             txt = a.get_text(" ", strip=True)
             if txt and len(txt) > len(names.get(ps, "")):
                 names[ps] = txt
@@ -245,8 +250,26 @@ def parse_part_page(html: str, source_url: str) -> Part | None:
                             prices[ps] = float(pm.group(1))
                         except ValueError:
                             pass
+            if ps not in images:
+                card = a.find_parent("div", class_=re.compile(r"pd__related-part"))
+                if card is None:
+                    card = a.find_parent("div") or a.parent
+                if card:
+                    img = card.find("img")
+                    if img:
+                        src = img.get("data-src") or img.get("src")
+                        if isinstance(src, str) and src and not src.startswith("data:image/"):
+                            images[ps] = src if src.startswith("http") else urljoin(BASE, src)
         for ps, nm in names.items():
-            ymn.append(RelatedPart(ps_number=ps, name=nm, price_usd=prices.get(ps)))
+            ymn.append(
+                RelatedPart(
+                    ps_number=ps,
+                    name=nm,
+                    price_usd=prices.get(ps),
+                    source_url=urls.get(ps),
+                    image_url=images.get(ps),
+                )
+            )
             if len(ymn) >= 10:
                 break
 

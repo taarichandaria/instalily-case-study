@@ -17,8 +17,16 @@ async def run(ps_number: str) -> dict:
         "name": part.name,
         "install_difficulty": part.install_difficulty,
         "install_time_min": part.install_time_min,
+        "install_time_source": "repair_rating" if part.install_time_min else None,
         "install_steps": part.install_steps,
+        "install_steps_source": "customer_repair_stories",
         "install_tools": part.install_tools,
+        "install_tools_listed": len(part.install_tools) > 0,
+        "install_tools_note": (
+            None
+            if part.install_tools
+            else "No tools were listed in the available repair stories."
+        ),
         "install_video_url": part.install_video_url,
         "safety_flags": part.safety_flags,
         "source_url": part.source_url,

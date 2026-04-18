@@ -18,7 +18,8 @@ from typing import AsyncIterator, Iterable
 from anthropic import AsyncAnthropic
 
 from app.prompts import SYSTEM_PROMPT
-from app.schemas import ChatMessage
+from app.schemas import ChatMessage, PartPreview
+from app.store import parts_db
 from app.tools import registry
 
 log = logging.getLogger(__name__)
@@ -46,6 +47,96 @@ def _to_anthropic_messages(history: Iterable[ChatMessage]) -> list[dict]:
 
 async def _run_tool(name: str, args: dict) -> dict:
     return await registry.dispatch(name, args)
+
+
+def _preview_candidates(result: dict) -> list[dict]:
+    candidates: list[dict] = []
+
+    def add(item: object) -> None:
+        if not isinstance(item, dict):
+            return
+        ps_number = item.get("ps_number")
+        if not isinstance(ps_number, str):
+            return
+
+        name = item.get("name")
+        if not isinstance(name, str):
+            name = item.get("part_name") if isinstance(item.get("part_name"), str) else ps_number
+
+        price_usd = item.get("price_usd")
+        if not isinstance(price_usd, (int, float)):
+            price_usd = None
+
+        image_url = item.get("image_url")
+        source_url = item.get("source_url")
+
+        candidates.append(
+            {
+                "ps_number": ps_number.strip().upper(),
+                "name": name,
+                "price_usd": float(price_usd) if isinstance(price_usd, (int, float)) else None,
+                "image_url": image_url if isinstance(image_url, str) else None,
+                "source_url": source_url if isinstance(source_url, str) else None,
+            }
+        )
+
+    add(result)
+
+    for key in ("results", "candidates", "you_may_also_need"):
+        items = result.get(key)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            add(item)
+
+    return candidates
+
+
+def _extract_part_previews(
+    results: list[tuple[str, str, dict, bool]],
+) -> list[dict]:
+    ordered_ps_numbers: list[str] = []
+    collected: dict[str, dict] = {}
+
+    for _tool_id, _name, result, ok in results:
+        if not ok:
+            continue
+        for candidate in _preview_candidates(result):
+            ps_number = candidate["ps_number"]
+            if ps_number not in collected:
+                collected[ps_number] = candidate
+                ordered_ps_numbers.append(ps_number)
+                continue
+
+            existing = collected[ps_number]
+            collected[ps_number] = {
+                **existing,
+                **{k: v for k, v in candidate.items() if v is not None},
+            }
+
+    parts = parts_db.get_parts(ordered_ps_numbers)
+    previews: list[dict] = []
+    for ps_number in ordered_ps_numbers:
+        candidate = collected[ps_number]
+        part = parts.get(ps_number)
+        image_url = candidate.get("image_url") or (part.image_url if part else None)
+        if not image_url:
+            continue
+        previews.append(
+            PartPreview(
+                ps_number=ps_number,
+                name=candidate.get("name") or (part.name if part else ps_number),
+                image_url=image_url,
+                price_usd=candidate.get("price_usd")
+                if candidate.get("price_usd") is not None
+                else (part.price_usd if part else None),
+                source_url=candidate.get("source_url") or (part.source_url if part else None),
+            ).model_dump()
+        )
+        if len(previews) >= 12:
+            break
+
+    return previews
 
 
 async def stream_reply(history: list[ChatMessage]) -> AsyncIterator[dict]:
@@ -134,6 +225,10 @@ async def stream_reply(history: list[ChatMessage]) -> AsyncIterator[dict]:
                     "is_error": not ok,
                 }
             )
+
+        part_previews = _extract_part_previews(results)
+        if part_previews:
+            yield {"kind": "part_previews", "parts": part_previews}
 
         messages.append({"role": "user", "content": tool_result_blocks})
 

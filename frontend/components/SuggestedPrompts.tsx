@@ -9,15 +9,21 @@ const PROMPTS = [
   "My dishwasher WDT780SAEM1 isn't draining — help me diagnose and install the fix.",
 ];
 
-export function SuggestedPrompts({ onPick }: { onPick: (p: string) => void }) {
+export function SuggestedPrompts({
+  onPick,
+  disabled = false,
+}: {
+  onPick: (p: string) => void;
+  disabled?: boolean;
+}) {
   return (
     <div className="flex flex-col items-center justify-center h-full py-12 gap-6">
       <div className="flex flex-col items-center gap-3 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--ps-teal-light)]">
-          <Sparkles className="h-6 w-6 text-[color:var(--ps-teal)]" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-none bg-[color:var(--ps-teal)]">
+          <Sparkles className="h-6 w-6 text-[color:var(--ps-yellow)]" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-[color:var(--foreground)]">
+          <h1 className="text-xl font-bold text-[color:var(--foreground)]">
             PartSelect Assistant
           </h1>
           <p className="text-sm text-zinc-500 mt-1">
@@ -29,8 +35,10 @@ export function SuggestedPrompts({ onPick }: { onPick: (p: string) => void }) {
         {PROMPTS.map((p) => (
           <button
             key={p}
+            type="button"
             onClick={() => onPick(p)}
-            className="text-left px-4 py-3 rounded-xl border border-[color:var(--border)] bg-white hover:border-[color:var(--ps-teal)] hover:bg-[color:var(--ps-teal-light)]/40 transition-colors text-sm text-[color:var(--foreground)]"
+            disabled={disabled}
+            className="text-left px-4 py-3 rounded-none border border-[color:var(--border)] bg-white hover:border-[color:var(--ps-teal)] hover:bg-[color:var(--ps-teal-light)]/40 disabled:cursor-not-allowed disabled:bg-zinc-50 disabled:text-zinc-400 disabled:hover:border-[color:var(--border)] disabled:hover:bg-zinc-50 transition-colors text-sm text-[color:var(--foreground)]"
           >
             {p}
           </button>

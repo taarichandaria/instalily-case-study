@@ -34,6 +34,7 @@ async def run(ps_number_or_slug: str) -> dict:
         "appliance_type": part.appliance_type,
         "price_usd": part.price_usd,
         "in_stock": part.in_stock,
+        "image_url": part.image_url,
         "source_url": part.source_url,
     }
 

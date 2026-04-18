@@ -31,7 +31,7 @@ export function ToolBadge({ activity }: { activity: ToolActivity }) {
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
+      className={`inline-flex items-center gap-1.5 rounded-none px-2.5 py-1 text-xs font-medium border transition-colors ${
         error
           ? "border-red-200 bg-red-50 text-red-700"
           : running
