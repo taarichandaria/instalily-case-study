@@ -346,6 +346,52 @@ function scorePartForSection(
   };
 }
 
+function assignPartsToBullets(
+  bullets: string[],
+  parts: MessageT["parts"],
+): Array<MessageT["parts"][number] | null> {
+  const assigned: Array<MessageT["parts"][number] | null> = bullets.map(
+    () => null,
+  );
+  const claimed = new Set<string>();
+
+  for (const tier of [3, 2] as const) {
+    bullets.forEach((bullet, bulletIndex) => {
+      if (assigned[bulletIndex]) return;
+      const best = parts
+        .filter((part) => !claimed.has(part.ps_number))
+        .map((part) => {
+          const score = scorePartForSection(bullet, part);
+          return score && score.tier === tier ? { part, ...score } : null;
+        })
+        .filter((match): match is SectionPartMatch => match !== null)
+        .sort((a, b) => a.matchIndex - b.matchIndex)[0];
+      if (best) {
+        assigned[bulletIndex] = best.part;
+        claimed.add(best.part.ps_number);
+      }
+    });
+  }
+
+  bullets.forEach((bullet, bulletIndex) => {
+    if (assigned[bulletIndex]) return;
+    const best = parts
+      .filter((part) => !claimed.has(part.ps_number))
+      .map((part) => {
+        const score = scorePartForSection(bullet, part);
+        return score && score.tier === 1 ? { part, ...score } : null;
+      })
+      .filter((match): match is SectionPartMatch => match !== null)
+      .sort((a, b) => b.tieBreaker - a.tieBreaker)[0];
+    if (best) {
+      assigned[bulletIndex] = best.part;
+      claimed.add(best.part.ps_number);
+    }
+  });
+
+  return assigned;
+}
+
 function assignPartToBestSection(
   sections: string[],
   part: MessageT["parts"][number],
@@ -530,16 +576,26 @@ export function Message({ message }: { message: MessageT }) {
             {sections.length > 0 ? (
               <div className="space-y-4">
                 {sections.map((section, index) => {
+                  const hasBulletList = bulletCount(section.markdown) > 1;
+                  const splitBullets = hasBulletList
+                    ? splitBulletSection(section.markdown)
+                    : null;
+                  const bulletPartAssignments =
+                    splitBullets && splitBullets.bullets.length > 0
+                      ? assignPartsToBullets(
+                          splitBullets.bullets,
+                          linkableParts,
+                        )
+                      : [];
+                  const assignedBulletParts = bulletPartAssignments.filter(
+                    (part): part is MessageT["parts"][number] => part !== null,
+                  );
                   const inlineListMedia =
-                    section.parts.length > 1 &&
-                    bulletCount(section.markdown) > 1 &&
-                    hasExplicitPartMatch(section.markdown, section.parts);
+                    hasBulletList && assignedBulletParts.length > 0;
                   const markdownComponents = createMarkdownComponents(
                     section.parts.length > 0 ? section.parts : linkableParts,
                   );
-                  const bulletSection = inlineListMedia
-                    ? splitBulletSection(section.markdown)
-                    : null;
+                  const bulletSection = inlineListMedia ? splitBullets : null;
 
                   return (
                     <div
@@ -564,35 +620,36 @@ export function Message({ message }: { message: MessageT }) {
                               </div>
                             )}
                             <div className="not-prose space-y-3">
-                              {bulletSection.bullets.map((bullet, bulletIndex) => (
-                                <div
-                                  key={`${index}-bullet-${bulletIndex}`}
-                                  className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4"
-                                >
-                                  <div className="min-w-0 flex-1">
-                                    <div className="prose prose-sm max-w-none font-sans">
-                                      <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={createMarkdownComponents(
-                                          section.parts[bulletIndex]
-                                            ? [section.parts[bulletIndex]]
-                                            : section.parts,
-                                        )}
-                                      >
-                                        {ensurePartLink(
-                                          bullet,
-                                          section.parts[bulletIndex],
-                                        )}
-                                      </ReactMarkdown>
+                              {bulletSection.bullets.map((bullet, bulletIndex) => {
+                                const bulletPart =
+                                  bulletPartAssignments[bulletIndex] ?? null;
+                                return (
+                                  <div
+                                    key={`${index}-bullet-${bulletIndex}`}
+                                    className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4"
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <div className="prose prose-sm max-w-none font-sans">
+                                        <ReactMarkdown
+                                          remarkPlugins={[remarkGfm]}
+                                          components={createMarkdownComponents(
+                                            bulletPart
+                                              ? [bulletPart]
+                                              : linkableParts,
+                                          )}
+                                        >
+                                          {ensurePartLink(bullet, bulletPart ?? undefined)}
+                                        </ReactMarkdown>
+                                      </div>
                                     </div>
+                                    {bulletPart && (
+                                      <div className="md:shrink-0 md:pt-1">
+                                        <PartSectionMedia parts={[bulletPart]} />
+                                      </div>
+                                    )}
                                   </div>
-                                  {section.parts[bulletIndex] && (
-                                    <div className="md:shrink-0 md:pt-1">
-                                      <PartSectionMedia parts={[section.parts[bulletIndex]]} />
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                             {bulletSection.after && (
                               <div className="prose prose-sm max-w-none font-sans">

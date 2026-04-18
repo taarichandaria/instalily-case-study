@@ -11,6 +11,7 @@ import hashlib
 import logging
 import re
 from pathlib import Path
+from urllib.parse import parse_qs, quote_plus, urlparse
 
 from curl_cffi.requests import AsyncSession
 
@@ -44,9 +45,17 @@ def _cache_key(url: str) -> Path:
     m = PS_NUMBER_RE.search(url)
     if m:
         return CACHE_DIR / f"part_PS{m.group(1)}.html"
-    m = re.search(r"/Models/([A-Z0-9]+)", url)
+    parsed = urlparse(url)
+    m = re.search(r"/Models/([A-Z0-9]+)", parsed.path)
     if m:
-        return CACHE_DIR / f"model_{m.group(1)}.html"
+        model_number = m.group(1)
+        query = parse_qs(parsed.query)
+        search_term = query.get("SearchTerm", [""])[0].strip()
+        if search_term:
+            suffix = re.sub(r"[^a-z0-9]+", "-", search_term.lower()).strip("-")[:40]
+            if suffix:
+                return CACHE_DIR / f"model_{model_number}_{suffix}.html"
+        return CACHE_DIR / f"model_{model_number}.html"
     h = hashlib.sha1(url.encode()).hexdigest()[:12]
     return CACHE_DIR / f"misc_{h}.html"
 
@@ -103,3 +112,7 @@ def part_url(slug: str) -> str:
 
 def model_url(model_number: str) -> str:
     return f"{BASE}/Models/{model_number}/"
+
+
+def model_search_url(model_number: str, search_term: str) -> str:
+    return f"{BASE}/Models/{model_number}/Parts/?SearchTerm={quote_plus(search_term)}"

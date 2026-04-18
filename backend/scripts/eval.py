@@ -79,6 +79,20 @@ async def tool_tests() -> int:
     if not ok:
         fails += 1
 
+    # (3b) Live model-specific fallback search
+    r = await registry.dispatch(
+        "search_model_parts_live",
+        {"model_number": "WRX735SDHZ", "query": "ice maker", "limit": 3},
+    )
+    names = " | ".join(item.get("name", "") for item in r.get("results", []))
+    ok = r.get("found") and len(r.get("results", [])) > 0
+    print(
+        f"[{'PASS' if ok else 'FAIL'}] live model search WRX735SDHZ ice maker: "
+        f"{len(r.get('results', []))} results :: {names}"
+    )
+    if not ok:
+        fails += 1
+
     # (4) Model location helper
     r = await registry.dispatch(
         "find_model_number_location",

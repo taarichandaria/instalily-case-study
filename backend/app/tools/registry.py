@@ -16,6 +16,7 @@ from app.tools import (
     get_install_guide,
     get_part_details,
     live_fetch_part,
+    search_model_parts_live,
     search_parts,
 )
 
@@ -31,6 +32,7 @@ _TOOLS: list[tuple[dict, ToolFn]] = [
     (get_install_guide.SCHEMA, get_install_guide.run),
     (find_model_number_location.SCHEMA, find_model_number_location.run),
     (live_fetch_part.SCHEMA, live_fetch_part.run),
+    (search_model_parts_live.SCHEMA, search_model_parts_live.run),
 ]
 
 
