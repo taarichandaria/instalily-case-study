@@ -240,15 +240,14 @@ export function Chat() {
     <div className="flex flex-col h-[100dvh] bg-[color:var(--background)]">
       <header className="border-b border-[color:var(--border)] bg-[color:var(--ps-teal)] px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-none bg-[color:var(--ps-orange-dark)]">
-            <span className="text-sm font-bold text-white">PS</span>
-          </div>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold text-white">
-              PartSelect Assistant
-            </div>
-            <div className="text-[11px] text-white/70">
-              Refrigerator &amp; dishwasher parts
+            <img
+              src="/partselect-logo.svg"
+              alt="PartSelect"
+              className="h-7 w-auto"
+            />
+            <div className="mt-0.5 text-[11px] text-white/70">
+              Assistant for refrigerator &amp; dishwasher parts
             </div>
           </div>
           <button

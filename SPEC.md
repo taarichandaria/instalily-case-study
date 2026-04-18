@@ -1,15 +1,12 @@
 # PartSelect Chat Agent — Spec
 
 Take-home case study for InstaLILY AI (SWE Intern).
-Deadline: 48 hours from 2026-04-17.
 
-Product scope and feature decisions live in `PRODUCT.md`. This doc covers architecture, stack, and the build plan.
+Product scope and feature decisions live in `PRODUCT.md`. This doc covers architecture and stack.
 
 ## Problem
 
 Design and build a domain-scoped chat agent for the PartSelect e-commerce site, limited to **Refrigerator and Dishwasher parts**. The agent provides product info and transactional assistance, and must stay in-scope (refuse unrelated queries).
-
-Deliverables: source code + Loom walkthrough. Slide deck optional.
 
 ## Evaluation criteria (from the brief)
 
@@ -51,7 +48,7 @@ Planned tools:
 - `diagnose_symptom(appliance_type, brand, symptom)` — map symptom → candidate parts
 - `lookup_order(order_id)` — **mocked** with realistic payload (no real auth/commerce)
 
-Scope guardrail: system prompt + a refusal path for out-of-scope queries (no classifier model — overkill at this timeline).
+Scope guardrail: system prompt + a refusal path for out-of-scope queries (no separate classifier model needed).
 
 ### Data strategy
 
@@ -59,9 +56,9 @@ Hybrid, chosen deliberately over pure real-time scraping:
 
 - **Pre-indexed seed corpus** (~200–500 popular fridge + dishwasher parts) — fast retrieval, reliable demo
 - **Live-fetch tool** for cache misses — preserves the "up to date" story
-- Future: scheduled re-crawl (not built in 48hrs; called out on Loom as the obvious extension)
+- Future: scheduled re-crawl
 
-Rationale: building a robust real-time scraper in 48hrs would starve the agent + UI of polish time. Hybrid is honest and defensible.
+Rationale: building a robust real-time scraper for every request would add latency and operational complexity without improving the core product experience for the MVP. A hybrid approach keeps the assistant fast while preserving a live fallback path for misses.
 
 ## Out of scope
 
@@ -70,20 +67,3 @@ Rationale: building a robust real-time scraper in 48hrs would starve the agent +
 - Real order history (mocked)
 - Live re-crawl scheduler
 - Categories beyond fridge + dishwasher
-
-## 48-hour build plan
-
-| Hours | Work |
-|-------|------|
-| 0–8   | Scraper + seed corpus + chunking/embedding → Chroma |
-| 8–20  | FastAPI agent loop with ~4 tools + scope guardrail |
-| 20–36 | Next.js chat UI: streaming, product cards, branding |
-| 36–44 | Polish: three demo queries perfect, edge cases, mocked order lookup |
-| 44–48 | Loom recording + README |
-
-## Loom talking points
-
-- Why hybrid data (pre-index + live fetch) over pure real-time
-- Why tool use over a single prompt — extensibility story (adding a new tool = adding a capability)
-- How the scope guardrail works and where it would break
-- What would change if this were production (scheduled re-crawl, pgvector, observability, eval harness)
