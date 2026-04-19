@@ -57,6 +57,14 @@ function normalizeText(text: string) {
     .replace(/\s+/g, " ");
 }
 
+function visibleMarkdown(markdown: string) {
+  return markdown.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "$1");
+}
+
+function extractPsNumbers(text: string) {
+  return [...text.matchAll(/PS\d{6,}/gi)].map(([ps]) => ps.toUpperCase());
+}
+
 function matchesPart(content: string, partName: string, psNumber: string) {
   const normalizedPs = normalizeText(psNumber);
   if (normalizedPs && content.includes(normalizedPs)) {
@@ -79,7 +87,32 @@ function matchesPart(content: string, partName: string, psNumber: string) {
 function visibleParts(message: MessageT, content: string) {
   if (message.parts.length === 0) return [];
 
-  const normalizedContent = normalizeText(content);
+  const renderedMarkdown = visibleMarkdown(content);
+  const renderedPsNumbers = extractPsNumbers(renderedMarkdown);
+
+  // When the assistant explicitly names PS numbers in its final text, those
+  // are the canonical parts for this message. Tool calls may have returned
+  // other same-named candidates (e.g. multiple "Ice Maker" parts) that were
+  // checked and rejected earlier in the turn; don't let them compete with the
+  // parts the answer actually mentions.
+  if (renderedPsNumbers.length > 0) {
+    const psOrder = new Map(
+      renderedPsNumbers.map((psNumber, index) => [psNumber, index] as const),
+    );
+    const psMatched = message.parts
+      .filter((part) => psOrder.has(part.ps_number.toUpperCase()))
+      .sort(
+        (a, b) =>
+          (psOrder.get(a.ps_number.toUpperCase()) ?? Number.MAX_SAFE_INTEGER) -
+          (psOrder.get(b.ps_number.toUpperCase()) ?? Number.MAX_SAFE_INTEGER),
+      );
+
+    if (psMatched.length > 0) {
+      return psMatched;
+    }
+  }
+
+  const normalizedContent = normalizeText(renderedMarkdown);
   const matched = message.parts.filter((part) =>
     matchesPart(normalizedContent, part.name, part.ps_number),
   );
@@ -191,6 +224,19 @@ function hasExplicitPartMatch(
   );
 }
 
+function hasLinkedPartName(
+  markdown: string,
+  part: MessageT["parts"][number],
+) {
+  const links = [...markdown.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)];
+
+  return links.some(([, label]) => {
+    const normalizedLabel = normalizeText(label);
+
+    return matchesPart(normalizedLabel, part.name, "");
+  });
+}
+
 function ensurePartLink(
   markdown: string,
   part: MessageT["parts"][number] | undefined,
@@ -199,8 +245,24 @@ function ensurePartLink(
     return markdown;
   }
 
-  if (explicitMatchIndex(markdown, part.name, part.ps_number) !== -1) {
+  if (hasLinkedPartName(markdown, part)) {
     return markdown;
+  }
+
+  const leadingBoldLabelPattern =
+    /(\*\*[^*\n]+\*\*)(?=\s+[–—-]\s+(?:\[[^\]]+\]\([^)]+\)|PS\d{6,}))/;
+  if (leadingBoldLabelPattern.test(markdown)) {
+    return markdown.replace(leadingBoldLabelPattern, (label) => {
+      return `[${label}](${part.source_url})`;
+    });
+  }
+
+  const boldNamePattern = new RegExp(`\\*\\*${escapeRegExp(part.name)}\\*\\*`);
+  if (boldNamePattern.test(markdown)) {
+    return markdown.replace(
+      boldNamePattern,
+      `[**${part.name}**](${part.source_url})`,
+    );
   }
 
   const namePattern = new RegExp(escapeRegExp(part.name));
@@ -240,19 +302,34 @@ function resolvedPartLink(
   href: string | undefined,
   children: ReactNode,
 ) {
+  const labelText = textFromNode(children);
+  const labelPs = labelText.match(PS_NUMBER_RE)?.[0]?.toUpperCase();
   const hrefPs = href?.match(PS_NUMBER_RE)?.[0]?.toUpperCase();
-  if (hrefPs) {
+
+  // A PS explicit in the visible label is higher-trust than one in the href —
+  // if the LLM hallucinates a URL whose PS disagrees with the text, believe
+  // the text.
+  if (labelPs) {
     const part = parts.find(
       (candidate) =>
-        candidate.ps_number.toUpperCase() === hrefPs && candidate.source_url,
+        candidate.ps_number.toUpperCase() === labelPs && candidate.source_url,
     );
     if (part?.source_url) {
       return part.source_url;
     }
   }
 
-  const label = normalizeText(textFromNode(children));
+  const label = normalizeText(labelText);
   if (!label) {
+    if (hrefPs) {
+      const part = parts.find(
+        (candidate) =>
+          candidate.ps_number.toUpperCase() === hrefPs && candidate.source_url,
+      );
+      if (part?.source_url) {
+        return part.source_url;
+      }
+    }
     return href;
   }
 
@@ -262,11 +339,26 @@ function resolvedPartLink(
       : false,
   );
 
-  return part?.source_url ?? href;
+  if (part?.source_url) {
+    return part.source_url;
+  }
+
+  if (hrefPs) {
+    const hrefPart = parts.find(
+      (candidate) =>
+        candidate.ps_number.toUpperCase() === hrefPs && candidate.source_url,
+    );
+    if (hrefPart?.source_url) {
+      return hrefPart.source_url;
+    }
+  }
+
+  return href;
 }
 
 function explicitMatchIndex(markdown: string, partName: string, psNumber: string) {
-  const lowerMarkdown = markdown.toLowerCase();
+  const renderedMarkdown = visibleMarkdown(markdown);
+  const lowerMarkdown = renderedMarkdown.toLowerCase();
   const lowerPs = psNumber.toLowerCase();
   const psIndex = lowerMarkdown.indexOf(lowerPs);
   if (psIndex !== -1) {
@@ -274,12 +366,9 @@ function explicitMatchIndex(markdown: string, partName: string, psNumber: string
   }
 
   const links = [...markdown.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)];
-  for (const [, label, url] of links) {
-    if (url.toLowerCase().includes(lowerPs)) {
-      return markdown.indexOf(url);
-    }
+  for (const [, label] of links) {
     if (matchesPart(normalizeText(label), partName, psNumber)) {
-      return markdown.indexOf(label);
+      return lowerMarkdown.indexOf(label.toLowerCase());
     }
   }
 
@@ -287,7 +376,7 @@ function explicitMatchIndex(markdown: string, partName: string, psNumber: string
 }
 
 function exactNameMatchIndex(markdown: string, partName: string) {
-  return markdown.toLowerCase().indexOf(partName.toLowerCase());
+  return visibleMarkdown(markdown).toLowerCase().indexOf(partName.toLowerCase());
 }
 
 function tokenMatchScore(markdown: string, partName: string) {
@@ -304,7 +393,7 @@ function tokenMatchScore(markdown: string, partName: string) {
     return 0;
   }
 
-  const normalizedMarkdown = normalizeText(markdown);
+  const normalizedMarkdown = normalizeText(visibleMarkdown(markdown));
   const matchedCount = tokens.filter((token) =>
     normalizedMarkdown.includes(token),
   ).length;
@@ -634,7 +723,14 @@ export function Message({ message }: { message: MessageT }) {
                                           remarkPlugins={[remarkGfm]}
                                           components={createMarkdownComponents(
                                             bulletPart
-                                              ? [bulletPart]
+                                              ? [
+                                                  bulletPart,
+                                                  ...linkableParts.filter(
+                                                    (p) =>
+                                                      p.ps_number !==
+                                                      bulletPart.ps_number,
+                                                  ),
+                                                ]
                                               : linkableParts,
                                           )}
                                         >

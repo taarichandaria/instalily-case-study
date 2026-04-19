@@ -2,18 +2,19 @@
 
 A domain-scoped chat agent for PartSelect's **refrigerator and dishwasher** parts. Take-home case study for InstaLILY AI (SWE Intern).
 
-See [`SPEC.md`](./SPEC.md) for architecture intent and [`PRODUCT.md`](./PRODUCT.md) for feature scope and cuts.
+- [`SPEC.md`](./SPEC.md) — architecture and stack
+- [`PRODUCT.md`](./PRODUCT.md) — feature scope, cuts, and demo success criteria
 
 ## What it does
 
-- **Find parts** from natural-language descriptions (semantic search over indexed PartSelect catalog).
-- **Diagnose symptoms** ("ice maker not making ice") → ranked candidate parts.
+- **Find parts** from natural-language descriptions, via semantic search over an indexed PartSelect catalogue.
+- **Diagnose symptoms** — e.g. *"ice maker not making ice"* → ranked candidate parts.
 - **Check compatibility** between a specific PS number and a specific appliance model.
 - **Explain installation** — difficulty, time, customer-written repair steps, YouTube video, safety notes.
 - **Help locate the model-number sticker** when the user doesn't know their model.
 - **Fall back to live scraping** for parts outside the indexed corpus.
 
-Streams tool activity + assistant text to the frontend via SSE — tool chips light up as the agent reasons.
+Tool activity and assistant text stream to the frontend over SSE — tool chips light up in-line as the agent reasons.
 
 ## Quick start
 
@@ -73,7 +74,7 @@ uv run python scripts/eval.py --agent     # + full agent loop end-to-end
  │ Next.js app  │ ── /api/chat ─▶│ FastAPI   /chat (SSE)          │
  │  Chat.tsx    │◀── SSE frames ─│   agent.py (tool-use loop)     │
  └──────────────┘                │     ├── Claude Sonnet 4.6      │
-                                 │     └── 7 tools (registry.py)  │
+                                 │     └── 8 tools (registry.py)  │
                                  └────────────┬───────────────────┘
                                               │
                          ┌────────────────────┴────────────────┐
@@ -88,6 +89,21 @@ uv run python scripts/eval.py --agent     # + full agent loop end-to-end
                    │ scraper/  (curl_cffi + BeautifulSoup, cached)  │
                    └────────────────────────────────────────────────┘
 ```
+
+### Tools
+
+The agent reaches for one of these per turn. Each is a single module under `backend/app/tools/`.
+
+| Tool | Purpose |
+| --- | --- |
+| `search_parts` | Semantic search over the indexed catalogue (Chroma). |
+| `diagnose_symptom` | Symptom → ranked candidate parts, biased toward the corpus's `Fixes:` field. |
+| `check_compatibility` | Boolean + known-model count for a given `(PS number, model)` pair (SQLite). |
+| `get_part_details` | Full part blob — price, description, OEM, rating, "You May Also Need". |
+| `get_install_guide` | Install steps, video link, difficulty, tools, safety notes. |
+| `find_model_number_location` | Where to find the model-number sticker on a given appliance + brand. |
+| `live_fetch_part` | On-demand scrape + parse for a PS number outside the indexed corpus. |
+| `search_model_parts_live` | Live fallback listing of parts for a given model number. |
 
 ### Key design decisions
 
@@ -124,9 +140,11 @@ frontend/
   components/
     Chat.tsx              Main chat UI (client)
     Message.tsx           Message bubble + streaming cursor
+    PartSectionMedia.tsx  Inline part preview cards
     ToolBadge.tsx         Inline tool-activity chips
     SuggestedPrompts.tsx  Empty-state prompt chips
   lib/
     sse.ts                SSE stream parser
+    formatAssistantContent.ts   Render helpers for assistant messages
     types.ts              Shared types
 ```

@@ -112,6 +112,13 @@ def parse_part_page(html: str, source_url: str) -> Part | None:
     oem_match = re.search(r"[A-Z0-9]{5,}", oem_raw)
     oem_number = oem_match.group(0) if oem_match else None
 
+    # PartSelect embeds the OEM in the h1 (e.g. "Ice Maker WPW10300024").
+    # Strip it so `name` stays stable when a part is renumbered upstream.
+    if oem_number and name.endswith(oem_number):
+        trimmed = name[: -len(oem_number)].strip(" -\u2013\u2014")
+        if trimmed:
+            name = trimmed
+
     # Brand — from "Manufactured by X for ..." line
     brand: str | None = None
     mbrand = _text_after_label(soup, "Manufactured by") or ""

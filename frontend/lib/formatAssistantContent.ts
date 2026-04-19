@@ -9,6 +9,34 @@ function hasStructuredMarkdown(content: string) {
   return STRUCTURED_MARKDOWN_LINE.test(content);
 }
 
+function normalizeMarkdownSpacing(content: string) {
+  const withSpacedHeadings = content.replace(
+    /(^|\n)(#{1,6})(?=[^\s#])/g,
+    "$1$2 ",
+  );
+
+  const normalizedLines = withSpacedHeadings
+    .split("\n")
+    .flatMap((rawLine) => {
+      const inlineHeadingMatch = rawLine.match(/^(.+?)(#{1,6}\s+\S.*)$/);
+
+      if (!inlineHeadingMatch) {
+        return [rawLine];
+      }
+
+      const [, prefix, heading] = inlineHeadingMatch;
+      const trimmedPrefix = prefix.trimEnd();
+
+      if (!trimmedPrefix || !/[.!?:)]$/.test(trimmedPrefix)) {
+        return [rawLine];
+      }
+
+      return [trimmedPrefix, "", heading.trimStart()];
+    });
+
+  return normalizedLines.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
 function isHeadingLine(line: string) {
   const clean = line.replace(/:$/, "").trim();
 
@@ -92,10 +120,12 @@ function pushLine(
 }
 
 export function formatAssistantContent(content: string) {
-  const normalized = content.replace(/\r\n?/g, "\n").trim();
+  const normalized = normalizeMarkdownSpacing(
+    content.replace(/\r\n?/g, "\n"),
+  ).trim();
 
   if (!normalized || hasStructuredMarkdown(normalized)) {
-    return content;
+    return normalized;
   }
 
   const output: string[] = [];

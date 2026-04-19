@@ -1,67 +1,85 @@
-InstaLILY Case Study
-- chat agent for PartSelect e-commerce website, focused on Refrigerator and Dishwasher parts
-    - goal: provide product information and assist with customer transactions
-    - must be focused on this use-case, avoid questions outside the scope, i.e. guardrails
-    - Needs to have a good user experience, and be extensible, i.e. capable of dealing with updates to product catalog
-- Front-end must align with PartSelect's branding
-- feature list (MVP — must ship)
-    - product information
-        - users should be able to ask broad queries about the product offerings and be provided with responses that answer these queries
-        - the following feature sets should be available, and some might feed into one another
-        - something's wrong–diagnosis of what parts they may need
-            - the user approaches the chatbot with a broad issue and is unsure of what parts they may need
-            - the chatbot should ask any clarifying questions and then suggest potential parts they may need to buy
-                - only clarify when symptom maps to >3 candidate parts, or brand/model is unknown — otherwise suggest with confidence ranges rather than interrogating
-            - it should then offer to go into product discovery once the explicit need is more certain
-        - product discovery
-            - the user wants to purchase a product for a specific need and is trying to judge which one to buy
-            - here, the chatbot should provide a list of options, explaining why these fit the need, the differences between them, and which option is best for which case (depending on things like price, use case, stock, etc)
-                - drop shipping ETA — it's zip-code dynamic, would be faked
-            - suggest products that may need to be bought alongside this purchase for installation
-                - scraped from PartSelect's "You May Also Need" section, not LLM-inferred
-        - compatability
-            - the chatbot should be able to answer questions regarding the compatibility of suggest parts with the user's appliances
-            - the chatbot should ask this before suggesting any products for purchase. Any suggested products should be compatible with the user's appliances
-            - the user should also be able to just ask if a specific part is compatible with what they have
-        - identification (text-based only for MVP)
-            - a user has a part or number but is unsure what it is
-            - they should be able to input a part number and get some clarity as to what it is
-            - this feature set should appear in other workflows if relevant (ex. in something's wrong–diagnosis)
-        - installation
-            - Step-by-step install (the example)
-            - difficulty/time estimate (i.e. can an average person do this or do they need to hire someone)
-                - that kind of info should be flagged in product discovery
-            - tools requires
-            - video link if available
-            - safety flags
-            - any other miscellanous questions that may arise
-        - model-number discovery helper
-            - "where do I find the model number on my Whirlpool fridge/dishwasher?" — first-class capability, gateway to every compat check
-    - cross-cutting behaviors
-        - conversation memory: once user mentions model/brand, carry it across turns — no re-asking
-        - scope guardrail: refuse out-of-scope queries (other appliance categories, non-PartSelect vendors, general chitchat) gracefully
-            - edge cases to handle explicitly:
-                - adjacent appliances (oven, washer, dryer): refuse, name the scope
-                - different vendors ("can I return something from Amazon?"): refuse, redirect
-                - DIY safety (rewiring, anything beyond part replacement): refuse, redirect to technician
-                - pricing negotiation / discount requests: polite redirect
-        - graceful miss handling: when in scope but lacking data, admit it and link to the live PartSelect page + install video rather than hallucinating
-- stretch (only ship if MVP is fully polished)
-    - post-purchase
-        - single mocked `lookup_order` tool — order status / shipping tracking with realistic fake payload
-        - NOT shipping: returns/exchanges, cancel/modify, reorder, warranty — too many mocked tools, no real data to ground them
-    - maintenance tips
-        - info on how often parts should be replaced, etc
-    - image-based identification
-        - user uploads photo of a pulled-out part
-        - Sonnet 4.6 is multimodal so technically reachable, but only if everything else is done
-- cut (talking points for the Loom, not in the build)
-    - returns, exchanges, warranty claims, cancel/modify, reorder flows
-    - shipping ETA math
-    - appliance categories beyond fridge + dishwasher
-- demo success criteria
-    - three example queries from the brief work flawlessly:
-        1. install guide for PS11752778
-        2. compat check for model WDT780SAEM1
-        3. Whirlpool ice maker troubleshooting
-    - at least one chained flow: symptom → diagnosis → discovery (with "You May Also Need") → compat → install, all in one conversation without re-asking for model number
+# PartSelect Chat Agent — Product Scope
+
+Feature scope and explicit cuts for the take-home case study. Architecture lives in [`SPEC.md`](./SPEC.md); build details in [`README.md`](./README.md).
+
+## Goals
+
+A domain-scoped chat agent for the PartSelect e-commerce site, limited to **refrigerator and dishwasher** parts. It should:
+
+- Provide accurate product information and assist with common purchase decisions.
+- Stay strictly in-scope — refuse unrelated queries gracefully rather than hallucinating.
+- Feel polished enough to ship, and be structured so the catalog or toolset can grow without rewrites.
+
+The UI should align with PartSelect's branding.
+
+## MVP feature set
+
+### 1. Symptom triage ("something's wrong")
+
+The user approaches with a broad issue and doesn't yet know which part they need.
+
+- Ask clarifying questions **only when the symptom maps to >3 candidate parts, or the brand/model is unknown**. Otherwise suggest with confidence ranges rather than interrogating.
+- Once the likely need is identified, offer to move into product discovery.
+
+### 2. Product discovery
+
+The user is ready to buy but needs help deciding between options.
+
+- Present a short list, explaining why each fits the stated need and how they differ (price, use case, stock, install difficulty).
+- Surface companion items from PartSelect's **"You May Also Need"** section on the part page — scraped, not LLM-inferred.
+- Shipping ETA is zip-dependent and would be faked for the demo; see cuts below.
+
+### 3. Compatibility
+
+- Answer directly when the user asks "is PS_ compatible with model _?"
+- Verify compatibility **before** recommending any part for purchase — no suggestion leaves the agent un-checked against the user's model.
+
+### 4. Part identification (text-based)
+
+- The user has a PS number or OEM number but isn't sure what it is. Given the number, return what the part is and where it fits.
+- This capability should surface inside other flows too (e.g. symptom triage → "is this what I have?").
+
+### 5. Installation guidance
+
+- Step-by-step install instructions.
+- Difficulty / time estimate (can an average person do this, or is a technician needed?). Flag this during discovery too.
+- Tools required.
+- Video link when available.
+- Safety flags and any other follow-ups.
+
+### 6. Model-number discovery helper
+
+- "Where do I find the model number on my Whirlpool fridge/dishwasher?" — a first-class capability, since it's the gateway to every compatibility check.
+
+### Cross-cutting behaviors
+
+- **Conversation memory.** Once the user mentions a brand or model, carry it across turns — never re-ask.
+- **Scope guardrail.** Refuse out-of-scope queries politely. Edge cases handled explicitly:
+  - Adjacent appliances (oven, washer, dryer) → refuse, name the scope.
+  - Other vendors ("can I return this to Amazon?") → refuse, redirect.
+  - DIY safety beyond part replacement (rewiring, etc.) → refuse, recommend a technician.
+  - Pricing negotiation or discount requests → polite redirect.
+- **Graceful miss handling.** When the query is in-scope but data is missing, admit it and link out to the live PartSelect page or install video rather than hallucinating.
+
+## Stretch (only if MVP is fully polished)
+
+- **Order lookup** — a single mocked `lookup_order` tool with a realistic fake payload. *Not* shipping: returns, exchanges, cancel/modify, reorder, warranty — too many mocked tools with no real data to ground them.
+- **Maintenance tips** — replacement cadences, seasonal checks, etc.
+- **Image-based part ID** — user uploads a photo of a pulled part. Sonnet 4.6 is multimodal so this is technically reachable, but only if everything else is done.
+
+## Out of scope (cut — Loom talking points, not in the build)
+
+- Returns, exchanges, warranty claims, cancel / modify, reorder flows.
+- Shipping-ETA math.
+- Appliance categories beyond refrigerator and dishwasher.
+- Real auth / checkout / payments.
+
+## Demo success criteria
+
+The three example queries from the brief must work flawlessly:
+
+1. Install guide for `PS11752778`.
+2. Compatibility check for model `WDT780SAEM1`.
+3. Whirlpool ice-maker troubleshooting.
+
+Plus **at least one chained flow**: symptom → diagnosis → discovery (with "You May Also Need") → compatibility → install, all in one conversation without re-asking for the model number.
